@@ -17,7 +17,16 @@
             margin: 30px auto;
         }
         .modal-header {
+            background-color: #343a40;
+            color: white;
+            border-bottom: 2px solid #007bff;
+        }
+        .modal-body {
             background-color: #f8f9fa;
+        }
+        .modal-content {
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
         }
         .table td {
             vertical-align: middle;
@@ -25,69 +34,240 @@
         #gamesTable {
             margin-top: 20px;
         }
+        .btn-indigo {
+            background-color: #6610f2;
+            color: white;
+        }
+        .btn-indigo:hover {
+            background-color: #520dc2;
+        }
     </style>
 </head>
 <body>
 <div id="app" class="container">
     <h1 class="my-4 text-center">Games List</h1>
+
+    <div class="text-right mb-3">
+        <button class="btn btn-primary" @click="showAddGameModal">Add New Game</button>
+    </div>
+
     <table id="gamesTable" class="table table-striped table-bordered">
         <thead class="thead-dark">
         <tr>
             <th>Name</th>
-            <th>Price</th>
+            <th class="text-center">Price</th>
+            <th class="text-center">Delete</th>
         </tr>
         </thead>
         <tbody>
         <tr v-for="game in games" :key="game.id">
             <td @click="getGame(game.id)">{{ game.name }}</td>
-            <td>{{ game.price | currency }}</td>
+            <td class="text-center">{{ formatPrice(game.price) }}</td>
+            <td class="text-center">
+                <button class="btn btn-danger btn-sm" @click="deleteGame(game.id)">Delete</button>
+            </td>
         </tr>
         </tbody>
     </table>
+
     <div id="gameInfoModal" class="modal fade" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Game Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" @click="closeModal"></button>
                 </div>
                 <div class="modal-body">
                     <table class="table table-striped">
-                        <tr><th>ID</th><td>{{gameInModal.id}}</td></tr>
-                        <tr><th>Name</th><td>{{gameInModal.name}}</td></tr>
-                        <tr><th>Price</th><td>{{gameInModal.price}}</td></tr>
+                        <tr><th>ID</th><td>{{ gameInModal.id }}</td></tr>
+                        <tr><th>Name</th><td>{{ gameInModal.name }}</td></tr>
+                        <tr><th>Price</th><td>{{ formatPrice(gameInModal.price) }}</td></tr>
                     </table>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-secondary" @click="closeModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="addGameModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Game</h5>
+                    <button type="button" class="btn-close" @click="closeModal"></button>
+                </div>
+                <div class="modal-body">
+                    <form @submit.prevent="addGame">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Game Name</label>
+                            <input type="text" v-model="newGame.name" class="form-control" id="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="price" class="form-label">Price</label>
+                            <input type="number" v-model.number="newGame.price" class="form-control" id="price" required step="0.00" min="0.00">
+                        </div>
+                        <button type="submit" class="btn btn-indigo">Add Game</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editGameModal" class="modal fade" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Game</h5>
+                    <button type="button" class="btn-close" @click="closeModal"></button>
+                </div>
+                <div class="modal-body">
+                    <form @submit.prevent="updateGame">
+                        <div class="mb-3">
+                            <label for="editName" class="form-label">Game Name</label>
+                            <input type="text" v-model="currentGame.name" class="form-control" id="editName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editPrice" class="form-label">Price</label>
+                            <input type="number" v-model.number="currentGame.price" class="form-control" id="editPrice" required step="0.01" min="0.00">
+                        </div>
+                        <button type="submit" class="btn btn-indigo">Update Game</button>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </div>
+<footer>&copy;Darja Miljukova</footer>
 <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.4.1/dist/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
-<script src="rest-client.js"></script>
+
 <script>
-    const vue = Vue.createApp({
+    const app = Vue.createApp({
         data() {
             return {
-                gameInModal: {name:null},
-                games: []
-            }
+                gameInModal: { id: null, name: null, price: null },
+                games: [],
+                newGame: { name: '', price: 0 },
+                currentGame: { id: null, name: '', price: null },
+                gameInfoModalInstance: null,
+                addGameModalInstance: null,
+                editGameModalInstance: null
+            };
         },
         async created() {
-            this.games = await (await fetch('http://localhost:8080/games')).json();
+            await this.fetchGames();
         },
         methods: {
-            getGame: async function (id) {
-                this.gameInModal = await (await fetch(`http://localhost:8080/games/${id}`)).json()
-                let gameInfoModal = new bootstrap.Modal(document.getElementById('gameInfoModal'), {})
-                gameInfoModal.show()
+            async fetchGames() {
+                try {
+                    this.games = await (await fetch('http://localhost:8080/games')).json();
+                } catch (error) {
+                    console.error('Error fetching games:', error);
+                }
+            },
+            async getGame(id) {
+                try {
+                    this.gameInModal = await (await fetch(`http://localhost:8080/games/${id}`)).json();
+                    if (!this.gameInfoModalInstance) {
+                        this.gameInfoModalInstance = new bootstrap.Modal(document.getElementById('gameInfoModal'), {});
+                    }
+                    this.gameInfoModalInstance.show();
+                } catch (error) {
+                    console.error('Error fetching game details:', error);
+                }
+            },
+            showEditGameModal(game) {
+                this.currentGame = { ...game };
+                if (!this.editGameModalInstance) {
+                    this.editGameModalInstance = new bootstrap.Modal(document.getElementById('editGameModal'), {});
+                }
+                this.editGameModalInstance.show();
+            },
+            async updateGame() {
+                if (confirm('Are you sure you want to update this game?')) {
+                    try {
+                        let response = await fetch(`http://localhost:8080/games/${this.currentGame.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.currentGame)
+                        });
+
+                        if (response.ok) {
+                            let updatedGame = await response.json();
+                            this.games = this.games.map(game => (game.id === updatedGame.id ? updatedGame : game));
+                            this.closeModal();
+                        } else {
+                            const errorData = await response.json();
+                            alert(`Error updating game: ${errorData.message}`);
+                        }
+                    } catch (error) {
+                        console.error('Error updating game:', error);
+                    }
+                }
+            },
+            async addGame() {
+                try {
+                    let response = await fetch('http://localhost:8080/games', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(this.newGame)
+                    });
+
+                    if (response.ok) {
+                        let addedGame = await response.json();
+                        this.games.push(addedGame);
+                        this.newGame = { name: '', price: 0 };
+                        this.closeModal();
+                    } else {
+                        const errorData = await response.json();
+                        alert(`Failed to add game: ${errorData.message}`);
+                    }
+                } catch (error) {
+                    console.error('Error adding game:', error);
+                }
+            },
+            async deleteGame(id) {
+                if (confirm('Are you sure you want to delete this game?')) {
+                    try {
+                        let response = await fetch(`http://localhost:8080/games/${id}`, {
+                            method: 'DELETE'
+                        });
+                        if (response.ok) {
+                            this.games = this.games.filter(game => game.id !== id);
+                        }
+                    } catch (error) {
+                        console.error('Error deleting game:', error);
+                    }
+                }
+            },
+            showAddGameModal() {
+                if (!this.addGameModalInstance) {
+                    this.addGameModalInstance = new bootstrap.Modal(document.getElementById('addGameModal'), {});
+                }
+                this.addGameModalInstance.show();
+            },
+            closeModal() {
+                if (this.gameInfoModalInstance) {
+                    this.gameInfoModalInstance.hide();
+                    this.gameInfoModalInstance = null;
+                } else if (this.addGameModalInstance) {
+                    this.addGameModalInstance.hide();
+                    this.addGameModalInstance = null;
+                } else if (this.editGameModalInstance) {
+                    this.editGameModalInstance.hide();
+                    this.editGameModalInstance = null;
+                }
+            },
+            //перевод цен и добавление евро
+            formatPrice(price) {
+                if (price === 0) return 'Free';
+                return price !== null ? `${price.toFixed(2)} €` : 'N/A';
             }
         }
-    }).mount('#app')
+    }).mount('#app');
 </script>
 </body>
 </html>
